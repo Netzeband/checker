@@ -14,9 +14,18 @@ leptos_axum = { workspace = true, optional = true }
 http.workspace = true
 cfg-if.workspace = true
 thiserror.workspace = true
+thaw = { version = "0.3.4" }
 
 [features]
 default = []
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum"]
+hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate", "thaw/hydrate"]
+ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum", "thaw/ssr"]
 
+[dependencies.uuid]
+version = "1.11.0"
+features = [
+    "v7",                # Lets you generate random UUIDs
+    "serde",             # Use a faster (but still sufficiently random) RNG
+    "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+    "js",                # For webassembly
+]
