@@ -46,9 +46,15 @@ pub fn GamePage() -> impl IntoView {
                 </ErrorMessage>
             }
         >
-            <p>This is game</p>
-            <p>{move || {text()}}</p>
-            <CopyToClipboardButton text=Signal::derive(game_url)/>
+            <div class="flex justify-start">
+                <p class="m-1">"This is game "</p>
+                <code class="bg-base-200 m-1 px-1">{move || {text()}}</code>
+                <CopyToClipboardButton
+                    text_to_copy=Signal::derive(game_url)
+                    text="Share"
+                    class="btn btn-primary btn-xs m-1"
+                />
+            </div>
         </Show>
     }
 }
@@ -78,43 +84,32 @@ pub fn ErrorMessage(children: Children) -> impl IntoView {
 #[component]
 pub fn CopyToClipboardButton(
     #[prop(into)]
-    text: Signal<String>
+    text_to_copy: Signal<String>,
+    #[prop(into)]
+    text: MaybeSignal<String>,
+    #[prop(default = "btn btn-primary")]
+    class: &'static str,
 ) -> impl IntoView {
     let clipboard_access = use_permission("clipboard_write");
     let clipboard = use_clipboard();
 
     view! {
-        <p>"Clipboard Permission: " {move || clipboard_access().to_string()}</p>
+        /*<p>"Clipboard Permission: " {move || clipboard_access().to_string()}</p>
         <p>"Clipboard Support: " {move || clipboard.is_supported.get()}</p>
-        <p>"Text to copy: " {move || {text()}}</p>
+        <p>"Text to copy: " {move || {text()}}</p>*/
         <button
-            class="btn btn-primary"
+            class={class}
             disabled=move || {!clipboard.is_supported.get()}
             on:click={
                 let copy = clipboard.copy.clone();
                 move |_| {
-                    logging::log!("Hello World {}", text());
-                    copy(text().as_str());
+                    copy(text_to_copy.get().as_str());
                 }
             }
         >
-            <Show when=move || clipboard.copied.get() fallback=move || "Copy">
+            <Show when=move || clipboard.copied.get() fallback=move || text.get()>
                 "Copied!"
             </Show>
         </button>
-        /*<Show
-            when=move || is_supported() || toggle()
-            fallback=move || { view! { <p>"Not supported!"</p> } }
-        >
-            <button on:click={
-                let copy = copy.clone();
-                move |_| copy("Hello!")
-            }>
-                <Show when=move || copied.get() fallback=move || "Copy">
-                    "Copied!"
-                </Show>
-            </button>
-            <p>hello world</p>
-        </Show>*/
     }
 }
