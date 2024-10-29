@@ -2,6 +2,7 @@ use leptos::*;
 use leptos_router::*;
 
 use crate::error_template::{AppError, ErrorTemplate};
+use crate::pages::game_page::GamePage;
 use crate::pages::landing_page::LandingPage;
 use crate::pages::new_game_page::NewGamePage;
 
@@ -20,7 +21,7 @@ pub fn AppRouter() -> impl IntoView {
                         <Route path="" view=NewGamePage/>
                         <Route path="/games" view=|| view! { <Outlet/> }>
                             <Route path="" view=NewGamePage/>
-                            <Route path=":id" view=|| view! { <p>"hello world"</p> }/>
+                            <Route path=":id" view=GamePage/>
                         </Route>
                     </Route>
                 </Routes>

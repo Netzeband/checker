@@ -34,6 +34,7 @@ async fn get_static_file(uri: Uri, root: &str) -> Result<Response<Body>, (Status
         .unwrap();
     // `ServeDir` implements `tower::Service` so we can call it with `tower::ServiceExt::oneshot`
     // This path is relative to the cargo root
+    #[allow(unreachable_patterns)]
     match ServeDir::new(root).oneshot(req).await {
         Ok(res) => Ok(res.map(Body::new)),
         Err(err) => Err((
