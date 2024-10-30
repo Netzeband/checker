@@ -11,6 +11,8 @@ leptos_meta.workspace = true
 leptos_router.workspace = true
 leptos_axum = { workspace = true, optional = true }
 wasm-bindgen = "0.2"
+codee.workspace = true
+tokio = { workspace=true, optional=true }
 
 http.workspace = true
 cfg-if.workspace = true
@@ -19,12 +21,23 @@ thaw = { version = "0.3.4" }
 leptos-use = { version="0.13.6", features = [
     "use_permission",
     "use_clipboard",
+    "use_cookie",
 ]}
+serde = { version = "1.0.213", features = ["derive"] }
 
 [features]
 default = []
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate", "thaw/hydrate"]
-ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum", "thaw/ssr", "leptos-use/ssr"]
+ssr = [
+    "leptos/ssr",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
+    "dep:leptos_axum",
+    "thaw/ssr",
+    "leptos-use/ssr",
+    "leptos-use/axum",
+    "dep:tokio"
+]
 
 [dependencies.uuid]
 version = "1.11.0"
