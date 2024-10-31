@@ -15,7 +15,7 @@ leptos_router = { version = "0.6", features = ["nightly"] }
 leptos_axum = { version = "0.6" }
 codee = { version = "0.2" }
 
-axum = "0.7"
+axum = { version = "0.7", features = ["ws"] }
 cfg-if = "1"
 console_error_panic_hook = "0.1.7"
 console_log = "1"

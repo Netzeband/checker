@@ -82,8 +82,53 @@ pub async fn assign_player_to_game(
     })
 }
 
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+pub struct Count {
+    pub value: i32,
+}
+
+#[cfg(feature = "ssr")]
+pub async fn player_handle_socket1(socket: std::sync::Arc<tokio::sync::Mutex<axum::extract::ws::WebSocket>>)
+{
+    use std::time::Duration;
+    use std::ops::DerefMut;
+    use leptos_server_signal::ServerSignal;
+
+    let mut count = ServerSignal::<Count>::new("counter").unwrap();
+
+    loop {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let mut locked_socket = socket.lock().await;
+        let result = count.with(&mut locked_socket.deref_mut(), |count| count.value += 1).await;
+        if result.is_err() {
+            break;
+        }
+    }
+}
+
+#[cfg(feature = "ssr")]
+pub async fn player_handle_socket2(socket: std::sync::Arc<tokio::sync::Mutex<axum::extract::ws::WebSocket>>) {
+    use std::time::Duration;
+    use std::ops::DerefMut;
+    use leptos_server_signal::ServerSignal;
+
+    let mut count = ServerSignal::<Count>::new("counter2").unwrap();
+
+    loop {
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+        let mut locked_socket = socket.lock().await;
+        let result = count.with(locked_socket.deref_mut(), |count| count.value -= 1).await;
+        if result.is_err() {
+            break;
+        }
+    }
+}
+
 #[component]
 pub fn PlayerAssignment() -> impl IntoView {
+    use leptos_server_signal::create_server_signal;
+
     let location = use_location();
     let (
         player_name_cookie, set_player_name_cookie
@@ -113,8 +158,12 @@ pub fn PlayerAssignment() -> impl IntoView {
     else {
         set_player_name.set(player_name_cookie.get_untracked().expect("Value should exist here."));
     }
+    let count = create_server_signal::<Count>("counter");
+    let count2 = create_server_signal::<Count>("counter2");
 
     view! {
+        <p>"Count 1: " {move || count.get().value.to_string()}</p>
+        <p>"Count 2: " {move || count2.get().value.to_string()}</p>
         <Show when=move || !is_player_assigned()>
             <div class="p-2 w-full flex justify-center">
                 <p>"Join game as "</p>

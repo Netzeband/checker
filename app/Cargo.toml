@@ -12,7 +12,8 @@ leptos_router.workspace = true
 leptos_axum = { workspace = true, optional = true }
 wasm-bindgen = "0.2"
 codee.workspace = true
-tokio = { workspace=true, optional=true }
+tokio = { workspace = true, optional = true }
+axum = { workspace=true, optional=true }
 
 http.workspace = true
 cfg-if.workspace = true
@@ -24,6 +25,8 @@ leptos-use = { version="0.13.6", features = [
     "use_cookie",
 ]}
 serde = { version = "1.0.213", features = ["derive"] }
+leptos_server_signal = { path="../../leptos_server_signal" }
+futures = "0.3.31"
 
 [features]
 default = []
@@ -36,7 +39,10 @@ ssr = [
     "thaw/ssr",
     "leptos-use/ssr",
     "leptos-use/axum",
-    "dep:tokio"
+    "dep:tokio",
+    "dep:axum",
+    "leptos_server_signal/ssr",
+    "leptos_server_signal/axum",
 ]
 
 [dependencies.uuid]
