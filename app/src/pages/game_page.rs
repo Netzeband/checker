@@ -125,6 +125,56 @@ pub async fn player_handle_socket2(socket: std::sync::Arc<tokio::sync::Mutex<axu
     }
 }
 
+use chrono::{DateTime, Utc};
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+pub struct Player {
+    pub name: Option<String>,
+    pub last_ping: Option<DateTime<Utc>>,
+    pub player_number: usize,
+    pub is_assigned: bool,
+}
+
+#[cfg(feature = "ssr")]
+pub async fn player_list_handler(socket: std::sync::Arc<tokio::sync::Mutex<axum::extract::ws::WebSocket>>) {
+    use std::time::Duration;
+    use std::ops::DerefMut;
+    use leptos_server_signal::ServerSignal;
+
+    let mut players = ServerSignal::<Vec<Player>>::new("players").unwrap();
+
+    {
+        let mut locked_socket = socket.lock().await;
+        let result = players.with(locked_socket.deref_mut(), |players| {
+            players.push(Player {
+                name: None,
+                last_ping: None,
+                player_number: 0,
+                is_assigned: false,
+            });
+            players.push(Player {
+                name: None,
+                last_ping: None,
+                player_number: 1,
+                is_assigned: false,
+            });
+        }).await;
+        if result.is_err() {
+            logging::error!("Error when sending initial player list.");
+            return;
+        }
+    }
+
+    loop {
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+        let mut locked_socket = socket.lock().await;
+        let result = players.with(locked_socket.deref_mut(), |_p| {}).await;
+        if result.is_err() {
+            break;
+        }
+    }
+}
+
 #[component]
 pub fn PlayerAssignment() -> impl IntoView {
     use leptos_server_signal::create_server_signal;
@@ -161,7 +211,19 @@ pub fn PlayerAssignment() -> impl IntoView {
     let count = create_server_signal::<Count>("counter");
     let count2 = create_server_signal::<Count>("counter2");
 
+    let players = create_server_signal::<Vec<Player>>("players");
+
     view! {
+        <p>{move || players.get().len()}</p>
+        <For
+            each=move || players.get()
+            key=|player| player.player_number
+            children=move |player: Player| {
+                view! {
+                    <p>{player.name}</p>
+                }
+            }
+        />
         <p>"Count 1: " {move || count.get().value.to_string()}</p>
         <p>"Count 2: " {move || count2.get().value.to_string()}</p>
         <Show when=move || !is_player_assigned()>

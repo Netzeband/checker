@@ -4,7 +4,7 @@ use fileserv::file_and_error_handler;
 use leptos::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
 
-use app::pages::game_page::{player_handle_socket1, player_handle_socket2};
+use app::pages::game_page::{player_handle_socket1, player_handle_socket2, player_list_handler};
 
 pub mod fileserv;
 
@@ -52,6 +52,7 @@ async fn handle_server_signal_socket(socket: axum::extract::ws::WebSocket) {
 
     handler_set.spawn(player_handle_socket1(socket.clone()));
     handler_set.spawn(player_handle_socket2(socket.clone()));
+    handler_set.spawn(player_list_handler(socket.clone()));
 
     let _ = handler_set.join_all().await;
 }

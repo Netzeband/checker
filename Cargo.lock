@@ -86,6 +86,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "cfg-if",
+ "chrono",
  "codee",
  "futures",
  "http",
@@ -398,6 +399,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-targets 0.52.6",
 ]
