@@ -13,7 +13,7 @@ leptos = { version = "0.6", features = ["nightly"] }
 leptos_meta = { version = "0.6", features = ["nightly"] }
 leptos_router = { version = "0.6", features = ["nightly"] }
 leptos_axum = { version = "0.6" }
-codee = { version = "0.2" }
+codee = { version = "0.2", features = ["json_serde"] }
 
 axum = { version = "0.7", features = ["ws"] }
 cfg-if = "1"

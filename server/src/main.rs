@@ -1,16 +1,19 @@
 use app::*;
 use axum::{Router, routing::get};
+use axum::extract::Extension;
 use fileserv::file_and_error_handler;
 use leptos::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
+use std::sync::Arc;
 
-use app::pages::game_page::{player_handle_socket1, player_handle_socket2, player_list_handler};
+use app::pages::game_page::{handle_players_websocket, GameState};
 
 pub mod fileserv;
 
 #[tokio::main]
-async fn main() {
+async fn main() {    
     simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
+    let game_state = Arc::new(GameState::new());
 
     // Setting get_configuration(None) means we'll be using cargo-leptos's env values
     // For deployment these variables are:
@@ -25,8 +28,10 @@ async fn main() {
     // build our application with a route
     let app = Router::new()
         .leptos_routes(&leptos_options, routes, App)
-        .route("/ssws", get(server_signal_websocket))
+        //.route("/ssws", get(server_signal_websocket))
+        .route("/players", get(players_websocket))
         .fallback(file_and_error_handler)
+        .layer(Extension(game_state))
         .with_state(leptos_options);
 
     // run our app with hyper
@@ -38,6 +43,14 @@ async fn main() {
         .unwrap();
 }
 
+async fn players_websocket(
+    ws: axum::extract::WebSocketUpgrade,
+    Extension(game_state): Extension<Arc<GameState>>,
+) -> axum::response::Response {
+    ws.on_upgrade(move |socket| handle_players_websocket(socket, Extension(game_state)))
+}
+
+/*
 async fn server_signal_websocket(ws: axum::extract::WebSocketUpgrade) -> axum::response::Response {
     ws.on_upgrade(handle_server_signal_socket)
 }
@@ -56,3 +69,4 @@ async fn handle_server_signal_socket(socket: axum::extract::ws::WebSocket) {
 
     let _ = handler_set.join_all().await;
 }
+*/

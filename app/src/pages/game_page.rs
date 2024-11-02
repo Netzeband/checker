@@ -1,9 +1,12 @@
+use std::time::Duration;
 use leptos::*;
 use leptos_router::{Params, use_params, use_location};
 use uuid::Uuid;
-use leptos_use::{use_clipboard, use_cookie_with_options, SameSite, UseCookieOptions};
-use codee::string::FromToStringCodec;
+use leptos_use::{use_clipboard, use_cookie_with_options, use_websocket, use_websocket_with_options, ReconnectLimit, SameSite, UseCookieOptions, UseWebSocketOptions, UseWebSocketReturn};
+use codee::string::{FromToStringCodec, JsonSerdeCodec};
 use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc, TimeDelta};
+use leptos_use::core::ConnectionReadyState;
 
 #[derive(Params, PartialEq)]
 struct GameParams {
@@ -47,7 +50,7 @@ pub fn GamePage() -> impl IntoView {
             }
         >
             <GameInfo game_id=Signal::derive(id)/>
-            <PlayerAssignment/>
+            <PlayerAssignment game_id=Signal::derive(move || id().unwrap())/>
         </Show>
     }
 }
@@ -125,9 +128,9 @@ pub async fn player_handle_socket2(socket: std::sync::Arc<tokio::sync::Mutex<axu
     }
 }
 
-use chrono::{DateTime, Utc};
+use serde_json::to_string;
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Player {
     pub name: Option<String>,
     pub last_ping: Option<DateTime<Utc>>,
@@ -175,10 +178,176 @@ pub async fn player_list_handler(socket: std::sync::Arc<tokio::sync::Mutex<axum:
     }
 }
 
-#[component]
-pub fn PlayerAssignment() -> impl IntoView {
-    use leptos_server_signal::create_server_signal;
+#[derive(Clone, Default, Serialize, Deserialize, Debug)]
+pub struct PlayerIdentity {
+    pub game_id: Uuid,
+    pub player_number: usize,
+    pub secret: String,
+}
 
+#[derive(Clone, Serialize, Deserialize)]
+enum PlayerClientData {
+    SelectGame(Uuid),
+    Alive(PlayerIdentity),
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+enum PlayerServerData {
+    PlayerList(Vec<Player>),
+}
+
+
+#[cfg(feature = "ssr")]
+trait SendPlayerServerData {
+    async fn send_player_server_data(&mut self, data: &PlayerServerData) -> Result<(), String>;
+}
+
+#[cfg(feature = "ssr")]
+impl SendPlayerServerData for axum::extract::ws::WebSocket {
+    async fn send_player_server_data(&mut self, data: &PlayerServerData) -> Result<(), String> {
+        use axum::extract::ws::Message;
+
+        let data = to_string(data).map_err(|_| "Cannot serialize player data.".to_string())?;
+        self.send(Message::Text(data)).await.map_err(|_| "Connection closed by client.".to_string())
+    }
+}
+
+#[cfg(feature = "ssr")]
+trait ReceivePlayerClientData {
+    fn receive_player_server_data(&self) -> Result<PlayerClientData, String>;
+}
+
+#[cfg(feature = "ssr")]
+impl ReceivePlayerClientData for axum::extract::ws::Message {
+    fn receive_player_server_data(&self) -> Result<PlayerClientData, String> {
+        use axum::extract::ws::Message;
+
+        match self {
+            Message::Text(data) => {
+                serde_json::from_str(data).map_err(|_| "Cannot deserialize player data.".to_string())
+            }
+            _ => Err("Unsupported message type.".to_string())
+        }
+    }
+}
+
+pub struct Game {
+    id: Uuid,
+}
+
+impl Game {
+    pub fn new(id: Uuid) -> Self {
+        Self {
+            id
+        }
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.id.clone()
+    }
+}
+
+pub struct GameState {
+}
+
+impl GameState {
+    pub fn new() -> Self {
+        Self {
+        }
+    }
+
+    pub async fn get_or_create_game(&self, game_id: Uuid) -> Game {
+        Game::new(game_id)
+    }    
+}
+
+use std::sync::Arc;
+
+
+#[cfg(feature = "ssr")]
+pub async fn handle_players_websocket(
+    mut socket: axum::extract::ws::WebSocket,
+    axum::extract::Extension(game_state): axum::extract::Extension<Arc<GameState>>
+) {
+    use tokio::time::timeout;
+    use futures::StreamExt;
+    use axum::extract::ws::Message;
+
+    let mut game: Option<Game> = None;
+    let players = Vec::from([
+        Player {
+            name: None,
+            last_ping: None,
+            player_number: 0,
+            is_assigned: false, 
+        },
+        Player {
+            name: None,
+            last_ping: None,
+            player_number: 1,
+            is_assigned: false,
+        },
+    ]);
+
+    loop {
+        match timeout(Duration::from_millis(1000), socket.next()).await {
+            Ok(Some(Ok(message))) => {
+                if let Message::Close(_) = message {
+                    break;
+                }
+                match message.receive_player_server_data() {
+                    Ok(PlayerClientData::SelectGame(game_id)) => { 
+                        if game.is_none() {
+                            logging::log!("Selecting game {}", game_id);
+                            game = Some(game_state.get_or_create_game(game_id).await);
+                        }
+                        else if game.as_ref().unwrap().id() != game_id {
+                            logging::error!("Already selected game {}", game_id);
+                        }
+                    }
+                    Ok(PlayerClientData::Alive(player_identity)) => { 
+                        if let Some(game) = &game {
+                            if player_identity.game_id == game.id() {
+                                // check if player secret is correct
+                                // update last_ping time of player
+                            }
+                            else {
+                                logging::error!("Received message for wrong game: {:?}", player_identity.game_id);
+                            }
+                        }
+                        else {
+                            logging::error!("Received message before selecting a game: {:?}", message);
+                        }
+                    }
+                    Err(error) => { 
+                        logging::error!("Cannot receive player data: {:?} for {:?}.", error, message);
+                        break; 
+                    }
+                }
+            }
+            Ok(Some(Err(error))) => { 
+                logging::error!("Websocket error: {:?}.", error);
+                break; 
+            }
+            Ok(None) => { 
+                break; 
+            }
+            Err(_) => { /* timeout */ }
+        }
+
+        if socket.send_player_server_data(&PlayerServerData::PlayerList(players.clone())).await.is_err() {
+            break;
+        }        
+    }
+
+    logging::log!("Players websocket closed by client.");
+}
+
+
+#[component]
+pub fn PlayerAssignment(
+    game_id: Signal<Uuid>,
+) -> impl IntoView {
     let location = use_location();
     let (
         player_name_cookie, set_player_name_cookie
@@ -197,6 +366,7 @@ pub fn PlayerAssignment() -> impl IntoView {
             .same_site(SameSite::Lax)
             .path(location.pathname.get_untracked()),
     );
+    let (player_number, set_player_number) = create_signal::<Option<usize>>(None);
     let (player_name, set_player_name) = create_signal("Player".to_string());
     let is_player_assigned = move || { player_secret_cookie.get().is_some() };
     let (player_assignment_pending, set_player_assignment_pending) = create_signal(false);
@@ -208,24 +378,65 @@ pub fn PlayerAssignment() -> impl IntoView {
     else {
         set_player_name.set(player_name_cookie.get_untracked().expect("Value should exist here."));
     }
-    let count = create_server_signal::<Count>("counter");
-    let count2 = create_server_signal::<Count>("counter2");
+    let (players, set_players) = create_signal::<Vec<Player>>(Vec::new());
+    let UseWebSocketReturn {
+        ready_state: players_socket_ready_state,
+        message: players_socket_message,
+        send: players_socket_send,
+        ..
+    } = use_websocket_with_options::<PlayerClientData, PlayerServerData, JsonSerdeCodec>(
+        "/players",
+        UseWebSocketOptions::default()
+            .reconnect_limit(ReconnectLimit::Infinite)
+            .on_close(|_| logging::log!("Lost connection to players websocket."))
+            .reconnect_interval(5000),
+    );
+    let players_socket_send1 = players_socket_send.clone();
+    create_effect(move |_| {
+        players_socket_message.with(|message| {
+            match message {
+                Some(PlayerServerData::PlayerList(players)) => {
+                    set_players.set(players.clone());
+                    if let Some(player_number) = player_number.get_untracked() {
+                        players_socket_send1(&PlayerClientData::Alive(PlayerIdentity {
+                            game_id: game_id.get_untracked(),
+                            player_number: player_number,
+                            secret: player_secret_cookie.get_untracked().unwrap_or_default(),
+                        }));    
+                    }
+                }
+                _ => {}
+            }
+        });
+    });
+    let players_socket_send2 = players_socket_send.clone();
+    create_effect(move |_| {
+        players_socket_ready_state.with(|state| {
+            if state == &ConnectionReadyState::Open {
+                players_socket_send2(&PlayerClientData::SelectGame(game_id.get()));
+            }
+        });
+    });
 
-    let players = create_server_signal::<Vec<Player>>("players");
 
     view! {
-        <p>{move || players.get().len()}</p>
-        <For
-            each=move || players.get()
-            key=|player| player.player_number
-            children=move |player: Player| {
-                view! {
-                    <p>{player.name}</p>
-                }
-            }
-        />
-        <p>"Count 1: " {move || count.get().value.to_string()}</p>
-        <p>"Count 2: " {move || count2.get().value.to_string()}</p>
+        <div class="overflow-x-auto">
+            <table class="table">
+                <tbody>
+                    <For
+                        each=move || players.get()
+                        key=|player| player.player_number
+                        let:player
+                    >
+                        <Show when=move || player.is_assigned>
+                            <PlayerInfo player=player.clone()/>
+                        </Show>
+                    </For>
+                </tbody>
+            </table>
+        </div>
+        <div>
+        </div>
         <Show when=move || !is_player_assigned()>
             <div class="p-2 w-full flex justify-center">
                 <p>"Join game as "</p>
@@ -278,6 +489,39 @@ pub fn PlayerAssignment() -> impl IntoView {
                 </Show>
             </div>
         </Show>
+    }
+}
+
+#[component]
+pub fn PlayerInfo(
+    #[prop(into)]
+    player: Player
+) -> impl IntoView {
+    view! {
+        <tr>
+            <th>
+                {move || match player.last_ping {
+                    Some(last_ping) if (last_ping - Utc::now()) < TimeDelta::seconds(10) => {
+                        view! {<div class="badge badge-success badge-sm"></div>}
+                    },
+                    Some(last_ping) if (last_ping - Utc::now()) < TimeDelta::seconds(120) => {
+                        view! {<div class="badge badge-warning  badge-sm"></div>}
+                    },
+                    _ => {view! {<div class="badge badge-error badge-sm"></div>} }
+                }}
+            </th>
+            <th>{player.name.unwrap_or_else(|| "Unknown".to_string())}</th>
+            <th>
+                {move || match player.player_number {
+                    0 => view! {<div class="badge bg-red-700">Player Red</div>},
+                    1 => view! {<div class="badge bg-blue-700">Player Blue</div>},
+                    i => {
+                        logging::error!("Unknown player number: {}", i);
+                        view! { <div>Unknown player assignment</div> }
+                    }
+                }}
+            </th>
+        </tr>
     }
 }
 

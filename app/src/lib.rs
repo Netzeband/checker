@@ -11,7 +11,7 @@ pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
 
-    leptos_server_signal::provide_websocket_with_retry("/ssws", 5000).unwrap();
+    //leptos_server_signal::provide_websocket_with_retry("/ssws", 5000).unwrap();
 
     view! {
         <Stylesheet id="leptos" href="/pkg/checker.css"/>
