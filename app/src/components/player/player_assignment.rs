@@ -1,7 +1,6 @@
 use leptos::*;
 use leptos_use::{UseCookieOptions, SameSite};
 use codee::string::FromToStringCodec;
-use uuid::Uuid;
 
 use super::use_player_assingment::UsePlayerAssingmentResult;
 use crate::utils::use_cookie_signal::{use_cookie_signal, UseCookieSignalResult};
@@ -12,11 +11,7 @@ const PLAYER_NAME_COOKIE_NAME: &str = "player_name";
 #[component]
 pub fn PlayerAssignment(
     #[prop(into)]
-    game_id: Signal<Uuid>,
-    #[prop(into)]
     player_number: RwSignal<Option<usize>>,
-    #[prop(into)]
-    error_message: RwSignal<Option<String>>,
     player_assignment: UsePlayerAssingmentResult<
         impl Fn(usize, String) + Clone + 'static,
         impl Fn() + Clone + 'static,

@@ -3,33 +3,14 @@ use leptos_router::use_location;
 use leptos_use::{use_cookie_with_options, UseCookieOptions, SameSite, UseTimeoutFnReturn, use_timeout_fn};
 use serde::{Deserialize, Serialize};
 use codee::string::JsonSerdeCodec;
-use core::fmt;
 use uuid::Uuid;
 
-use super::player_assignment_server_functiony::{assign_player_to_game, reassign_player_to_game, unassign_player_from_game};
+use super::player_assignment_server_function::{assign_player_to_game, reassign_player_to_game, unassign_player_from_game};
 
 
 const PLAYER_ASSIGNMENT_COOKIE_NAME: &str = "player_assignment";
 const PLAYER_ASSIGNMENT_COOKIE_LIFETIME_IN_SEC: i64 = 60*60*24*14; // 14 days
 const PLAYER_ASSINGMENT_TIMEOUT_IN_SEC: f64 = 10.0;
-
-
-#[derive(Debug, Clone)]
-pub struct AssingmentError {
-    message: String,
-}
-
-impl AssingmentError {
-    pub fn new(message: &str) -> Self {
-        Self { message: message.to_string() }
-    }
-}
-
-impl fmt::Display for AssingmentError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Cannot assign/reassign or unassign player: {}", self.message)
-    }
-}
 
 
 pub struct UsePlayerAssingmentResult<AssignFn, ReassignFn, UnassignFn> 

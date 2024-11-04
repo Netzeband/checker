@@ -24,9 +24,7 @@ pub fn PlayerInformation(
 
     view! {
         <PlayerAssignment
-            game_id=game_id
             player_number=player_number
-            error_message=error_message
             player_assignment=player_assignment
         />
     }
