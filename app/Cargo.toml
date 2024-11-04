@@ -24,12 +24,14 @@ leptos-use = { path="../../leptos-use", features = [
     "use_clipboard",
     "use_cookie",
     "use_websocket",
+    "use_interval_fn",
 ]}
 serde = { version = "1.0.213", features = ["derive"] }
 leptos_server_signal = { path="../../leptos_server_signal" }
 futures = "0.3.31"
 chrono = { version="0.4.38", features = ["serde"]}
 serde_json = "1.0.132"
+dashmap = { version="6.1.0", features = ["serde"]}
 
 [features]
 default = []

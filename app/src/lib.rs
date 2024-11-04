@@ -1,3 +1,5 @@
+#![feature(async_closure)]
+
 use leptos::*;
 use leptos_meta::*;
 
