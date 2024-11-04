@@ -12,6 +12,8 @@ use chrono::{DateTime, Utc, TimeDelta};
 use leptos_use::core::ConnectionReadyState;
 use serde_json::to_string;
 
+use crate::components::player::{self, PlayerInformation};
+
 
 
 #[derive(Params, PartialEq)]
@@ -41,8 +43,16 @@ pub fn GamePage() -> impl IntoView {
             }
         )
     };
+    let player_number = create_rw_signal::<Option<usize>>(None);
+    let error_message = create_rw_signal::<Option<String>>(None);
 
     view! {
+        <Show when=move || {error_message.get().is_some()}>
+            <p class="content-error">"Error: "{error_message.get().unwrap()}</p>
+        </Show>
+        <Show when=move || {player_number.get().is_some()}>
+            <p class="content-success">{format!("Player: {}", player_number.get().unwrap())}</p>
+        </Show>
         <Show
             when=move || { id().is_some() }
             fallback=|| view! {
@@ -56,7 +66,12 @@ pub fn GamePage() -> impl IntoView {
             }
         >
             <GameInfo game_id=Signal::derive(id)/>
-            <PlayerAssignment game_id=Signal::derive(move || id().unwrap())/>
+            <PlayerInformation 
+                game_id=Signal::derive(move || id().unwrap())
+                player_number=player_number
+                error_message=error_message
+            />
+            /*<PlayerAssignment game_id=Signal::derive(move || id().unwrap())/>*/
         </Show>
     }
 }

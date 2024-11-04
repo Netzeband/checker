@@ -4,7 +4,9 @@ use leptos::*;
 use leptos_meta::*;
 
 pub mod pages;
+pub mod components;
 mod error_template;
+mod utils;
 
 use pages::app_router::AppRouter;
 
